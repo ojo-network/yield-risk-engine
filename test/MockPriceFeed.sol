@@ -1,5 +1,4 @@
-// src/test/MockAggregator.sol
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity >=0.5.0;
 
 import "../src/interfaces/AggregatorV2V3Interface.sol";

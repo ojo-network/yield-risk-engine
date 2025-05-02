@@ -1,9 +1,10 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
 import "../src/OjoYieldRiskEngine.sol";
 import "../src/OjoYieldRiskEngineFactory.sol";
+import "../src/OjoYieldCapManager.sol";
 import "./MockPriceFeed.sol";
 
 contract OjoYieldRiskEngineTest is Test {
@@ -11,22 +12,23 @@ contract OjoYieldRiskEngineTest is Test {
     OjoYieldRiskEngineFactory public factory;
     MockPriceFeed public basePriceFeed;
     MockPriceFeed public quotePriceFeed;
+    OjoYieldCapManager public yieldCapManager;
 
     int256 constant INITIAL_BASE_PRICE = 103e16;
     int256 constant INITIAL_QUOTE_PRICE = 1e18;
     uint8 constant DECIMALS = 18;
     string constant DESCRIPTION = "STETH / ETH";
     uint256 constant VERSION = 1;
-    uint256 constant yieldCap = 5e16;
+    uint256 constant YIELD_CAP = 5e16;
 
     function setUp() public {
         basePriceFeed = new MockPriceFeed(INITIAL_BASE_PRICE, DECIMALS, DESCRIPTION, VERSION);
-
         quotePriceFeed = new MockPriceFeed(INITIAL_QUOTE_PRICE, DECIMALS, DESCRIPTION, VERSION);
+        yieldCapManager = new OjoYieldCapManager(YIELD_CAP);
 
         factory = new OjoYieldRiskEngineFactory();
         address riskEngineAddress =
-            factory.createOjoYieldRiskEngine(address(basePriceFeed), address(quotePriceFeed), yieldCap);
+            factory.createOjoYieldRiskEngine(address(basePriceFeed), address(quotePriceFeed), address(yieldCapManager));
         ojoYieldRiskEngine = OjoYieldRiskEngine(riskEngineAddress);
     }
 
@@ -53,6 +55,6 @@ contract OjoYieldRiskEngineTest is Test {
         (, int256 answer2,,,) = quotePriceFeed.latestRoundData();
 
         // Verify that OjoYieldRiskEngine returns price cap
-        assertEq(answer, answer2 + int256(yieldCap));
+        assertEq(answer, answer2 + int256(YIELD_CAP));
     }
 }

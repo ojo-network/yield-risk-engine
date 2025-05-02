@@ -19,10 +19,10 @@ contract OjoYieldRiskEngineFactory {
     function createOjoYieldRiskEngine(
         address basePriceFeed,
         address quotePriceFeed,
-        uint256 yieldCap
+        address yieldCapManager
     ) external returns (address ojoYieldRiskEngine) {
         ojoYieldRiskEngine = implementation.clone();
-        OjoYieldRiskEngine(ojoYieldRiskEngine).initialize(basePriceFeed, quotePriceFeed, yieldCap);
+        OjoYieldRiskEngine(ojoYieldRiskEngine).initialize(basePriceFeed, quotePriceFeed, yieldCapManager);
         OjoYieldRiskEngineAddresses[msg.sender] = ojoYieldRiskEngine;
         emit OjoYieldRiskEngineCreated(ojoYieldRiskEngine);
     }

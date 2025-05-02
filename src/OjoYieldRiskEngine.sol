@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {AggregatorV3Interface} from "./interfaces/AggregatorV2V3Interface.sol";
 import {AggregatorV2V3Interface} from "./interfaces/AggregatorV2V3Interface.sol";
+import {IOjoYieldCapManager} from "./interfaces/IOjoYieldCapManager.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract OjoYieldRiskEngine is AggregatorV3Interface, Initializable {
@@ -12,13 +13,14 @@ contract OjoYieldRiskEngine is AggregatorV3Interface, Initializable {
 
     AggregatorV2V3Interface public BasePriceFeed;
     AggregatorV2V3Interface public QuotePriceFeed;
-    uint256 public yieldCap;
+    IOjoYieldCapManager public OjoYieldCapManager;
 
     error GetRoundDataCanBeOnlyCalledWithLatestRound(uint80 requestedRoundId);
 
-    function initialize(address _basePriceFeed, address _quotePriceFeed, uint256 _yieldCap) public initializer {
+    function initialize(address _basePriceFeed, address _quotePriceFeed, address _yieldCapManager) public initializer {
         require(_basePriceFeed != address(0), "zero address");
         require(_quotePriceFeed != address(0), "zero address");
+        require(_yieldCapManager != address(0), "zero address");
 
         AggregatorV2V3Interface basePriceFeed = AggregatorV2V3Interface(_basePriceFeed);
         AggregatorV2V3Interface quotePriceFeed = AggregatorV2V3Interface(_quotePriceFeed);
@@ -30,9 +32,8 @@ contract OjoYieldRiskEngine is AggregatorV3Interface, Initializable {
 
         BasePriceFeed = basePriceFeed;
         QuotePriceFeed = quotePriceFeed;
+        OjoYieldCapManager = IOjoYieldCapManager(_yieldCapManager);
         riskEngineDescription = string(abi.encodePacked("Ojo Yield Risk Engine ", BasePriceFeed.description()));
-
-        yieldCap = _yieldCap;
     }
 
     function latestRoundData()
@@ -46,6 +47,8 @@ contract OjoYieldRiskEngine is AggregatorV3Interface, Initializable {
         answer = rawAnswer;
 
         (, int256 quoteAnswer,,,) = QuotePriceFeed.latestRoundData();
+
+        uint256 yieldCap = OjoYieldCapManager.getYieldCap();
 
         int256 cappedAnswer = quoteAnswer + ((quoteAnswer * int256(yieldCap)) / int256(ONE));
 
