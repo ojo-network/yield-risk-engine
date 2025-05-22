@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 
 import {AggregatorV3Interface} from "./interfaces/AggregatorV2V3Interface.sol";
 import {AggregatorV2V3Interface} from "./interfaces/AggregatorV2V3Interface.sol";
-import {IOjoYieldCapManager} from "./interfaces/IOjoYieldCapManager.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract OjoYieldRiskEngine is AggregatorV3Interface, Initializable {
@@ -12,27 +11,21 @@ contract OjoYieldRiskEngine is AggregatorV3Interface, Initializable {
     string private riskEngineDescription;
 
     AggregatorV2V3Interface public BasePriceFeed;
-    AggregatorV2V3Interface public QuotePriceFeed;
-    IOjoYieldCapManager public OjoYieldCapManager;
+    uint256 public yieldCap;
+    int256 public cappedAnswer;
 
-    error GetRoundDataCanBeOnlyCalledWithLatestRound(uint80 requestedRoundId);
-
-    function initialize(address _basePriceFeed, address _quotePriceFeed, address _yieldCapManager) public initializer {
+    function initialize(address _basePriceFeed, uint256 _yieldCap) public initializer {
         require(_basePriceFeed != address(0), "zero address");
-        require(_quotePriceFeed != address(0), "zero address");
-        require(_yieldCapManager != address(0), "zero address");
 
         AggregatorV2V3Interface basePriceFeed = AggregatorV2V3Interface(_basePriceFeed);
-        AggregatorV2V3Interface quotePriceFeed = AggregatorV2V3Interface(_quotePriceFeed);
-
-        require(
-            basePriceFeed.decimals() == quotePriceFeed.decimals(),
-            "basePriceFeed decimals not equal to quotePriceFeed decimals"
-        );
 
         BasePriceFeed = basePriceFeed;
-        QuotePriceFeed = quotePriceFeed;
-        OjoYieldCapManager = IOjoYieldCapManager(_yieldCapManager);
+        yieldCap = _yieldCap;
+
+        (, int256 answer,,,) = BasePriceFeed.latestRoundData();
+
+        cappedAnswer = answer + ((answer * int256(yieldCap)) / int256(ONE));
+
         riskEngineDescription = string(abi.encodePacked("Ojo Yield Risk Engine ", BasePriceFeed.description()));
     }
 
@@ -45,12 +38,6 @@ contract OjoYieldRiskEngine is AggregatorV3Interface, Initializable {
             BasePriceFeed.latestRoundData();
 
         answer = rawAnswer;
-
-        (, int256 quoteAnswer,,,) = QuotePriceFeed.latestRoundData();
-
-        uint256 yieldCap = OjoYieldCapManager.getYieldCap();
-
-        int256 cappedAnswer = quoteAnswer + ((quoteAnswer * int256(yieldCap)) / int256(ONE));
 
         if (answer > cappedAnswer) {
             answer = cappedAnswer;
@@ -66,10 +53,16 @@ contract OjoYieldRiskEngine is AggregatorV3Interface, Initializable {
         view
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        if (_roundId != latestRound()) {
-            revert GetRoundDataCanBeOnlyCalledWithLatestRound(_roundId);
+        (uint80 roundId, int256 rawAnswer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) =
+            BasePriceFeed.getRoundData(_roundId);
+
+        answer = rawAnswer;
+
+        if (answer > cappedAnswer) {
+            answer = cappedAnswer;
         }
-        return latestRoundData();
+
+        return (roundId, answer, startedAt, updatedAt, answeredInRound);
     }
 
     function latestRound() public view returns (uint80) {
