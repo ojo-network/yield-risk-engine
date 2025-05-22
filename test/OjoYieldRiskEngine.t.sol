@@ -14,27 +14,35 @@ contract OjoYieldRiskEngineTest is Test {
     MockPriceFeed public quotePriceFeed;
     OjoYieldCapManager public yieldCapManager;
 
-    int256 constant INITIAL_BASE_PRICE = 103e16;
-    int256 constant INITIAL_QUOTE_PRICE = 1e18;
+    int256 constant INITIAL_BASE_PRICE = 206e16;
+    int256 constant INITIAL_QUOTE_PRICE = 2e18;
     uint8 constant DECIMALS = 18;
-    string constant DESCRIPTION = "STETH / ETH";
+    string constant BASE_DESCRIPTION = "STETH / USD";
+    string constant QUOTE_DESCRIPTION = "ETH / USD";
     uint256 constant VERSION = 1;
     uint256 constant YIELD_CAP = 5e16;
+    uint256 constant CREATION_FEE = 0.01 ether;
+    uint256 constant ONE = 1e18;
+
+    receive() external payable {}
 
     function setUp() public {
-        basePriceFeed = new MockPriceFeed(INITIAL_BASE_PRICE, DECIMALS, DESCRIPTION, VERSION);
-        quotePriceFeed = new MockPriceFeed(INITIAL_QUOTE_PRICE, DECIMALS, DESCRIPTION, VERSION);
+        basePriceFeed = new MockPriceFeed(INITIAL_BASE_PRICE, DECIMALS, BASE_DESCRIPTION, VERSION);
+        quotePriceFeed = new MockPriceFeed(INITIAL_QUOTE_PRICE, DECIMALS, QUOTE_DESCRIPTION, VERSION);
         yieldCapManager = new OjoYieldCapManager(YIELD_CAP);
 
-        factory = new OjoYieldRiskEngineFactory();
-        address riskEngineAddress =
-            factory.createOjoYieldRiskEngine(address(basePriceFeed), address(quotePriceFeed), address(yieldCapManager));
+        factory = new OjoYieldRiskEngineFactory(CREATION_FEE);
+
+        address riskEngineAddress = factory.createOjoYieldRiskEngine{value: CREATION_FEE}(
+            address(basePriceFeed), address(quotePriceFeed), address(yieldCapManager)
+        );
+
         ojoYieldRiskEngine = OjoYieldRiskEngine(riskEngineAddress);
     }
 
     function testDescription() public {
         string memory description = ojoYieldRiskEngine.description();
-        assertEq(description, "Ojo Yield Risk Engine STETH / ETH");
+        assertEq(description, "Ojo Yield Risk Engine STETH / USD");
     }
 
     function testLatestRoundDataBelowYieldCap() public {
@@ -42,19 +50,19 @@ contract OjoYieldRiskEngineTest is Test {
 
         (, int256 answer1,,,) = basePriceFeed.latestRoundData();
 
-        // Verify that OjoPTFeed returns the base price
+        // Verify that OjoYieldRiskEngine returns the base price
         assertEq(answer, answer1);
     }
 
     function testLatestRoundDataAboveYieldCap() public {
         // Update base price to a higher price than yield cap
-        basePriceFeed.updateAnswer(18e17);
+        basePriceFeed.updateAnswer(211e16);
 
         (, int256 answer,,,) = ojoYieldRiskEngine.latestRoundData();
 
         (, int256 answer2,,,) = quotePriceFeed.latestRoundData();
 
         // Verify that OjoYieldRiskEngine returns price cap
-        assertEq(answer, answer2 + int256(YIELD_CAP));
+        assertEq(answer, answer2 + ((answer2 * int256(YIELD_CAP)) / int256(ONE)));
     }
 }

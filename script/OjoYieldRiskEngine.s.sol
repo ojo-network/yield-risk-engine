@@ -8,9 +8,11 @@ import "../src/OjoYieldCapManager.sol";
 
 contract DeployOjoYieldRiskEngineFactory is Script {
     function run() external {
+        uint256 creationFee = vm.envUint("CREATION_FEE");
+
         vm.startBroadcast();
 
-        OjoYieldRiskEngineFactory factory = new OjoYieldRiskEngineFactory();
+        OjoYieldRiskEngineFactory factory = new OjoYieldRiskEngineFactory(creationFee);
 
         console.log("OjoYieldRiskEngineFactory deployed at:", address(factory));
 
@@ -39,12 +41,14 @@ contract CreateOjoYieldRiskEngine is Script {
         address basePriceFeed = vm.envAddress("BASE_PRICE_FEED");
         address quotePriceFeed = vm.envAddress("QUOTE_PRICE_FEED");
         address yieldCapManager = vm.envAddress("YIELD_CAP_MANAGER");
+        uint256 creationFee = vm.envUint("CREATION_FEE");
 
         vm.startBroadcast();
 
         OjoYieldRiskEngineFactory factory = OjoYieldRiskEngineFactory(ojoYieldRiskEngineFactory);
 
-        address riskEngine = factory.createOjoYieldRiskEngine(basePriceFeed, quotePriceFeed, yieldCapManager);
+        address riskEngine =
+            factory.createOjoYieldRiskEngine{value: creationFee}(basePriceFeed, quotePriceFeed, yieldCapManager);
 
         console.log("New OjoYieldRiskEngine created at:", riskEngine);
 
