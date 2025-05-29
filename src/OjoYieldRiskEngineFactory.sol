@@ -9,7 +9,7 @@ contract OjoYieldRiskEngineFactory is Ownable {
     using Clones for address;
 
     address public immutable implementation;
-    mapping(address => address) public OjoYieldRiskEngineAddresses;
+    mapping(address => address[]) public OjoYieldRiskEngineAddresses;
     mapping(address => bool) public termsAccepted;
 
     uint256 public creationFee;
@@ -46,28 +46,35 @@ contract OjoYieldRiskEngineFactory is Ownable {
     ) external payable returns (address ojoYieldRiskEngine) {
         require(termsAccepted[msg.sender], "accept terms first");
 
-        if (freeDeploymentsRemaining == 0) {
+        bool requiresFee = freeDeploymentsRemaining == 0;
+        uint256 refundAmount = 0;
+
+        if (requiresFee) {
             require(msg.value >= creationFee, "insufficient fee");
-
-            if (creationFee > 0) {
-                (bool success,) = feeRecipient.call{value: creationFee}("");
-                require(success, "fee transfer failed");
-
-                uint256 refund = msg.value - creationFee;
-                if (refund > 0) {
-                    (bool refundSuccess,) = msg.sender.call{value: refund}("");
-                    require(refundSuccess, "refund failed");
-                }
-            }
+            refundAmount = msg.value - creationFee;
         } else {
+            refundAmount = msg.value;
+        }
+
+        if (!requiresFee) {
             freeDeploymentsRemaining = freeDeploymentsRemaining - 1;
         }
 
         ojoYieldRiskEngine = implementation.clone();
         OjoYieldRiskEngine(ojoYieldRiskEngine).initialize(basePriceFeed, yieldCap);
-        OjoYieldRiskEngineAddresses[msg.sender] = ojoYieldRiskEngine;
+        OjoYieldRiskEngineAddresses[msg.sender].push(ojoYieldRiskEngine);
 
         emit OjoYieldRiskEngineCreated(ojoYieldRiskEngine);
+
+        if (requiresFee && creationFee > 0) {
+            (bool success,) = feeRecipient.call{value: creationFee}("");
+            require(success, "fee transfer failed");
+        }
+
+        if (refundAmount > 0) {
+            (bool refundSuccess,) = msg.sender.call{value: refundAmount}("");
+            require(refundSuccess, "refund failed");
+        }
     }
 
     /**
