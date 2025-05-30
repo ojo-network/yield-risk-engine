@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: BSL-1.1
 pragma solidity ^0.8.22;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
@@ -36,6 +36,7 @@ contract OjoYieldRiskEngineFactory is Ownable {
 
     /**
      * @notice Creates a new OjoYieldRiskEngine instance
+     * @notice This gives the creator a license to operate a market with an Ojo Risk Engine
      * @dev Clones the implementation contract and initializes it with the provided parameters
      * @param basePriceFeed Address of the base price feed of the asset
      * @param yieldCap Yield cap value (in 1e18 precision)

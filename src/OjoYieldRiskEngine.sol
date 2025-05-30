@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: BSL-1.1
 pragma solidity ^0.8.20;
 
 import {AggregatorV3Interface} from "./interfaces/AggregatorV2V3Interface.sol";
