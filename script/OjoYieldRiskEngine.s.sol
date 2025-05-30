@@ -7,11 +7,12 @@ import "../src/OjoYieldRiskEngine.sol";
 
 contract DeployOjoYieldRiskEngineFactory is Script {
     function run() external {
-        uint256 creationFee = vm.envUint("CREATION_FEE");
+        uint256 baseFee = vm.envUint("BASE_FEE");
+        uint256 feeIncrement = vm.envUint("FEE_INCREMENT");
 
         vm.startBroadcast();
 
-        OjoYieldRiskEngineFactory factory = new OjoYieldRiskEngineFactory(creationFee);
+        OjoYieldRiskEngineFactory factory = new OjoYieldRiskEngineFactory(baseFee, feeIncrement);
 
         console.log("OjoYieldRiskEngineFactory deployed at:", address(factory));
 

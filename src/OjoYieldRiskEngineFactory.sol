@@ -12,22 +12,26 @@ contract OjoYieldRiskEngineFactory is Ownable {
     mapping(address => address[]) public OjoYieldRiskEngineAddresses;
     mapping(address => bool) public termsAccepted;
 
-    uint256 public creationFee;
+    uint256 public baseFee;
+    uint256 public feeIncrement;
+    uint256 public totalDeployments;
     address public feeRecipient;
-    uint8 public freeDeploymentsRemaining;
 
     event OjoYieldRiskEngineCreated(address indexed feed);
-    event FeeUpdated(uint256 indexed newFee);
+    event FeeUpdated(uint256 indexed newBaseFee, uint256 indexed newFeeIncrement);
     event FeeRecipientUpdated(address indexed newFeeRecipient);
     event TermsAccepted(address indexed user);
 
-    constructor(
-        uint256 creationFee_
-    ) Ownable(msg.sender) {
+    constructor(uint256 baseFee_, uint256 feeIncrement_) Ownable(msg.sender) {
         implementation = address(new OjoYieldRiskEngine());
         feeRecipient = msg.sender;
-        creationFee = creationFee_;
-        freeDeploymentsRemaining = 5;
+        baseFee = baseFee_;
+        feeIncrement = feeIncrement_;
+        totalDeployments = 0;
+    }
+
+    function getCurrentCreationFee() public view returns (uint256) {
+        return baseFee + (totalDeployments * feeIncrement);
     }
 
     /**
@@ -46,19 +50,17 @@ contract OjoYieldRiskEngineFactory is Ownable {
     ) external payable returns (address ojoYieldRiskEngine) {
         require(termsAccepted[msg.sender], "accept terms first");
 
-        bool requiresFee = freeDeploymentsRemaining == 0;
+        uint256 currentFee = getCurrentCreationFee();
         uint256 refundAmount = 0;
 
-        if (requiresFee) {
-            require(msg.value >= creationFee, "insufficient fee");
-            refundAmount = msg.value - creationFee;
+        if (currentFee > 0) {
+            require(msg.value >= currentFee, "insufficient fee");
+            refundAmount = msg.value - currentFee;
         } else {
             refundAmount = msg.value;
         }
 
-        if (!requiresFee) {
-            freeDeploymentsRemaining = freeDeploymentsRemaining - 1;
-        }
+        totalDeployments++;
 
         ojoYieldRiskEngine = implementation.clone();
         OjoYieldRiskEngine(ojoYieldRiskEngine).initialize(basePriceFeed, yieldCap);
@@ -66,8 +68,8 @@ contract OjoYieldRiskEngineFactory is Ownable {
 
         emit OjoYieldRiskEngineCreated(ojoYieldRiskEngine);
 
-        if (requiresFee && creationFee > 0) {
-            (bool success,) = feeRecipient.call{value: creationFee}("");
+        if (currentFee > 0) {
+            (bool success,) = feeRecipient.call{value: currentFee}("");
             require(success, "fee transfer failed");
         }
 
@@ -89,11 +91,10 @@ contract OjoYieldRiskEngineFactory is Ownable {
         emit TermsAccepted(msg.sender);
     }
 
-    function setCreationFee(
-        uint256 _newFee
-    ) external onlyOwner {
-        creationFee = _newFee;
-        emit FeeUpdated(_newFee);
+    function setFeeStructure(uint256 newBaseFee, uint256 newFeeIncrement) external onlyOwner {
+        baseFee = newBaseFee;
+        feeIncrement = newFeeIncrement;
+        emit FeeUpdated(newBaseFee, newFeeIncrement);
     }
 
     function setFeeRecipient(
