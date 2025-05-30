@@ -23,7 +23,7 @@ contract OjoYieldRiskEngineTest is Test {
     function setUp() public {
         basePriceFeed = new MockPriceFeed(INITIAL_BASE_PRICE, DECIMALS, BASE_DESCRIPTION, VERSION);
 
-        factory = new OjoYieldRiskEngineFactory(0, 0);
+        factory = new OjoYieldRiskEngineFactory(0, 0, 0);
 
         factory.acceptTerms();
 
@@ -33,7 +33,7 @@ contract OjoYieldRiskEngineTest is Test {
     }
 
     function testCreateWithoutAcceptingTerms() public {
-        OjoYieldRiskEngineFactory newFactory = new OjoYieldRiskEngineFactory(0, 0);
+        OjoYieldRiskEngineFactory newFactory = new OjoYieldRiskEngineFactory(0, 0, 0);
 
         vm.expectRevert("accept terms first");
         newFactory.createOjoYieldRiskEngine{value: 0}(address(basePriceFeed), YIELD_CAP);
@@ -42,7 +42,8 @@ contract OjoYieldRiskEngineTest is Test {
     function testIncrementalFee() public {
         uint256 baseFee = 0;
         uint256 feeIncrement = 0.002 ether;
-        OjoYieldRiskEngineFactory newFactory = new OjoYieldRiskEngineFactory(baseFee, feeIncrement);
+        uint256 maxFee = 0.01 ether;
+        OjoYieldRiskEngineFactory newFactory = new OjoYieldRiskEngineFactory(baseFee, feeIncrement, maxFee);
 
         // Set a different fee recipient than the test contract to test refund functionality
         address feeRecipient = makeAddr("feeRecipient");
@@ -90,25 +91,50 @@ contract OjoYieldRiskEngineTest is Test {
         uint256 balanceAfter = address(this).balance;
         assertEq(balanceBefore - balanceAfter, expectedFee, "Should only charge the required fee, refunding excess");
 
-        // Apply flat fee to deployments
-        uint256 flatFee = 0.005 ether;
-        newFactory.setFeeStructure(flatFee, 0);
-
+        // Fee reaches max vaule
         uint256 flatFeeExpected = newFactory.getCurrentCreationFee();
-        assertEq(flatFeeExpected, flatFee, "Fee should be the flat fee amount");
+        assertEq(flatFeeExpected, maxFee, "Fee should be the max fee amount");
 
-        address sixthEngine = newFactory.createOjoYieldRiskEngine{value: flatFee}(address(basePriceFeed), YIELD_CAP);
+        address sixthEngine = newFactory.createOjoYieldRiskEngine{value: maxFee}(address(basePriceFeed), YIELD_CAP);
         assertTrue(sixthEngine != address(0), "Sixth engine should be created with flat fee");
 
         uint256 stillFlatFee = newFactory.getCurrentCreationFee();
-        assertEq(stillFlatFee, flatFee, "Fee should remain flat after deployment");
+        assertEq(stillFlatFee, maxFee, "Fee should remain flat");
 
-        address seventhEngine = newFactory.createOjoYieldRiskEngine{value: flatFee}(address(basePriceFeed), YIELD_CAP);
+        address seventhEngine = newFactory.createOjoYieldRiskEngine{value: maxFee}(address(basePriceFeed), YIELD_CAP);
         assertTrue(seventhEngine != address(0), "Seventh engine should be created with same flat fee");
 
-        // Fees paid: 0 (1st) + 0.002 (2nd) + 0.004 (3rd) + 0.006 (4th) + 0.008 (5th) + 0.005 (6th) + 0.005 (7th) = 0.030 ether
-        uint256 expectedTotalFees =
-            0 + feeIncrement + (2 * feeIncrement) + (3 * feeIncrement) + (4 * feeIncrement) + flatFee + flatFee;
+        // Update max fee and fee increment to higher values
+        uint256 newMaxFee = 0.04 ether;
+        uint256 newFeeIncrement = 0.005 ether;
+        newFactory.setMaxFee(newMaxFee);
+        newFactory.setFeeStructure(baseFee, newFeeIncrement);
+
+        expectedFee = newFactory.getCurrentCreationFee();
+        uint256 expectedIncrementalFee = baseFee + (7 * newFeeIncrement);
+        assertEq(expectedFee, expectedIncrementalFee, "Fee should use new increment after fee structure update");
+
+        address eighthEngine =
+            newFactory.createOjoYieldRiskEngine{value: expectedIncrementalFee}(address(basePriceFeed), YIELD_CAP);
+        assertTrue(eighthEngine != address(0), "Eighth engine should be created with new fee structure");
+
+        expectedFee = newFactory.getCurrentCreationFee();
+        assertEq(expectedFee, newMaxFee, "Fee should be capped at new max fee");
+
+        address ninthEngine = newFactory.createOjoYieldRiskEngine{value: newMaxFee}(address(basePriceFeed), YIELD_CAP);
+        assertTrue(ninthEngine != address(0), "Ninth engine should be created at new max fee");
+
+        uint256 finalFee = newFactory.getCurrentCreationFee();
+        assertEq(finalFee, newMaxFee, "Fee should remain at new max fee");
+
+        // Calculate total fees collected
+        // Original fees: 0 + 0.002 + 0.004 + 0.006 + 0.008 + 0.01 + 0.01 = 0.040 ether
+        // New fees: 0.035 (8th with new increment) + 0.04 (9th at new max) = 0.075 ether
+        // Total: 0.040 + 0.075 = 0.115 ether
+        uint256 originalFees =
+            0 + feeIncrement + (2 * feeIncrement) + (3 * feeIncrement) + (4 * feeIncrement) + maxFee + maxFee;
+        uint256 newFees = (7 * newFeeIncrement) + newMaxFee;
+        uint256 expectedTotalFees = originalFees + newFees;
         assertEq(feeRecipient.balance, expectedTotalFees, "Fee recipient should have received correct total fees");
     }
 

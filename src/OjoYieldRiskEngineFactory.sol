@@ -14,24 +14,28 @@ contract OjoYieldRiskEngineFactory is Ownable {
 
     uint256 public baseFee;
     uint256 public feeIncrement;
+    uint256 public maxFee;
     uint256 public totalDeployments;
     address public feeRecipient;
 
     event OjoYieldRiskEngineCreated(address indexed feed);
     event FeeUpdated(uint256 indexed newBaseFee, uint256 indexed newFeeIncrement);
+    event MaxFeeUpdated(uint256 indexed newMaxFee);
     event FeeRecipientUpdated(address indexed newFeeRecipient);
     event TermsAccepted(address indexed user);
 
-    constructor(uint256 baseFee_, uint256 feeIncrement_) Ownable(msg.sender) {
+    constructor(uint256 baseFee_, uint256 feeIncrement_, uint256 maxFee_) Ownable(msg.sender) {
         implementation = address(new OjoYieldRiskEngine());
         feeRecipient = msg.sender;
         baseFee = baseFee_;
         feeIncrement = feeIncrement_;
+        maxFee = maxFee_;
         totalDeployments = 0;
     }
 
     function getCurrentCreationFee() public view returns (uint256) {
-        return baseFee + (totalDeployments * feeIncrement);
+        uint256 calculatedFee = baseFee + (totalDeployments * feeIncrement);
+        return calculatedFee > maxFee ? maxFee : calculatedFee;
     }
 
     /**
@@ -96,6 +100,13 @@ contract OjoYieldRiskEngineFactory is Ownable {
         baseFee = newBaseFee;
         feeIncrement = newFeeIncrement;
         emit FeeUpdated(newBaseFee, newFeeIncrement);
+    }
+
+    function setMaxFee(
+        uint256 newMaxFee
+    ) external onlyOwner {
+        maxFee = newMaxFee;
+        emit MaxFeeUpdated(newMaxFee);
     }
 
     function setFeeRecipient(

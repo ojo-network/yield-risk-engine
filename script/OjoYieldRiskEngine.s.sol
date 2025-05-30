@@ -9,10 +9,11 @@ contract DeployOjoYieldRiskEngineFactory is Script {
     function run() external {
         uint256 baseFee = vm.envUint("BASE_FEE");
         uint256 feeIncrement = vm.envUint("FEE_INCREMENT");
+        uint256 maxFee = vm.envUint("MAX_FEE");
 
         vm.startBroadcast();
 
-        OjoYieldRiskEngineFactory factory = new OjoYieldRiskEngineFactory(baseFee, feeIncrement);
+        OjoYieldRiskEngineFactory factory = new OjoYieldRiskEngineFactory(baseFee, feeIncrement, maxFee);
 
         console.log("OjoYieldRiskEngineFactory deployed at:", address(factory));
 
