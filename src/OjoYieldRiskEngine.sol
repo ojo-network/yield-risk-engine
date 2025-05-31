@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: BSL-1.1
 pragma solidity ^0.8.20;
 
 import {AggregatorV3Interface} from "./interfaces/AggregatorV2V3Interface.sol";
@@ -23,10 +23,20 @@ contract OjoYieldRiskEngine is AggregatorV3Interface, Initializable {
         yieldCap = _yieldCap;
 
         (, int256 answer,,,) = BasePriceFeed.latestRoundData();
+        require(answer > 0, "invalid price feed answer");
 
         cappedAnswer = answer + ((answer * int256(yieldCap)) / int256(ONE));
 
         riskEngineDescription = string(abi.encodePacked("Ojo Yield Risk Engine ", BasePriceFeed.description()));
+    }
+
+    function _capAnswer(
+        int256 rawAnswer
+    ) internal view returns (int256) {
+        if (rawAnswer > cappedAnswer) {
+            return cappedAnswer;
+        }
+        return rawAnswer;
     }
 
     function latestRoundData()
@@ -34,16 +44,12 @@ contract OjoYieldRiskEngine is AggregatorV3Interface, Initializable {
         view
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        (uint80 roundId, int256 rawAnswer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) =
+        (uint80 _roundId, int256 rawAnswer, uint256 _startedAt, uint256 _updatedAt, uint80 _answeredInRound) =
             BasePriceFeed.latestRoundData();
 
-        answer = rawAnswer;
+        answer = _capAnswer(rawAnswer);
 
-        if (answer > cappedAnswer) {
-            answer = cappedAnswer;
-        }
-
-        return (roundId, answer, startedAt, updatedAt, answeredInRound);
+        return (_roundId, answer, _startedAt, _updatedAt, _answeredInRound);
     }
 
     function getRoundData(
@@ -53,16 +59,12 @@ contract OjoYieldRiskEngine is AggregatorV3Interface, Initializable {
         view
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        (uint80 roundId, int256 rawAnswer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) =
+        (uint80 _roundIdResult, int256 rawAnswer, uint256 _startedAt, uint256 _updatedAt, uint80 _answeredInRound) =
             BasePriceFeed.getRoundData(_roundId);
 
-        answer = rawAnswer;
+        answer = _capAnswer(rawAnswer);
 
-        if (answer > cappedAnswer) {
-            answer = cappedAnswer;
-        }
-
-        return (roundId, answer, startedAt, updatedAt, answeredInRound);
+        return (_roundIdResult, answer, _startedAt, _updatedAt, _answeredInRound);
     }
 
     function latestRound() public view returns (uint80) {

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
 import "forge-std/Script.sol";
@@ -7,11 +7,13 @@ import "../src/OjoYieldRiskEngine.sol";
 
 contract DeployOjoYieldRiskEngineFactory is Script {
     function run() external {
-        uint256 creationFee = vm.envUint("CREATION_FEE");
+        uint256 baseFee = vm.envUint("BASE_FEE");
+        uint256 feeIncrement = vm.envUint("FEE_INCREMENT");
+        uint256 maxFee = vm.envUint("MAX_FEE");
 
         vm.startBroadcast();
 
-        OjoYieldRiskEngineFactory factory = new OjoYieldRiskEngineFactory(creationFee);
+        OjoYieldRiskEngineFactory factory = new OjoYieldRiskEngineFactory(baseFee, feeIncrement, maxFee);
 
         console.log("OjoYieldRiskEngineFactory deployed at:", address(factory));
 

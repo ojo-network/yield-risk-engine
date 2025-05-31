@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: BSL-1.1
 pragma solidity ^0.8.22;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
@@ -9,29 +9,38 @@ contract OjoYieldRiskEngineFactory is Ownable {
     using Clones for address;
 
     address public immutable implementation;
-    mapping(address => address) public OjoYieldRiskEngineAddresses;
+    mapping(address => address[]) public OjoYieldRiskEngineAddresses;
     mapping(address => bool) public termsAccepted;
 
-    uint256 public creationFee;
+    uint256 public baseFee;
+    uint256 public feeIncrement;
+    uint256 public maxFee;
+    uint256 public totalDeployments;
     address public feeRecipient;
-    uint8 public freeDeploymentsRemaining;
 
     event OjoYieldRiskEngineCreated(address indexed feed);
-    event FeeUpdated(uint256 indexed newFee);
+    event FeeUpdated(uint256 indexed newBaseFee, uint256 indexed newFeeIncrement);
+    event MaxFeeUpdated(uint256 indexed newMaxFee);
     event FeeRecipientUpdated(address indexed newFeeRecipient);
     event TermsAccepted(address indexed user);
 
-    constructor(
-        uint256 creationFee_
-    ) Ownable(msg.sender) {
+    constructor(uint256 baseFee_, uint256 feeIncrement_, uint256 maxFee_) Ownable(msg.sender) {
         implementation = address(new OjoYieldRiskEngine());
         feeRecipient = msg.sender;
-        creationFee = creationFee_;
-        freeDeploymentsRemaining = 5;
+        baseFee = baseFee_;
+        feeIncrement = feeIncrement_;
+        maxFee = maxFee_;
+        totalDeployments = 0;
+    }
+
+    function getCurrentCreationFee() public view returns (uint256) {
+        uint256 calculatedFee = baseFee + (totalDeployments * feeIncrement);
+        return calculatedFee > maxFee ? maxFee : calculatedFee;
     }
 
     /**
      * @notice Creates a new OjoYieldRiskEngine instance
+     * @notice This gives the creator a license to operate a market with an Ojo Risk Engine
      * @dev Clones the implementation contract and initializes it with the provided parameters
      * @param basePriceFeed Address of the base price feed of the asset
      * @param yieldCap Yield cap value (in 1e18 precision)
@@ -46,28 +55,33 @@ contract OjoYieldRiskEngineFactory is Ownable {
     ) external payable returns (address ojoYieldRiskEngine) {
         require(termsAccepted[msg.sender], "accept terms first");
 
-        if (freeDeploymentsRemaining == 0) {
-            require(msg.value >= creationFee, "insufficient fee");
+        uint256 currentFee = getCurrentCreationFee();
+        uint256 refundAmount = 0;
 
-            if (creationFee > 0) {
-                (bool success,) = feeRecipient.call{value: creationFee}("");
-                require(success, "fee transfer failed");
-
-                uint256 refund = msg.value - creationFee;
-                if (refund > 0) {
-                    (bool refundSuccess,) = msg.sender.call{value: refund}("");
-                    require(refundSuccess, "refund failed");
-                }
-            }
+        if (currentFee > 0) {
+            require(msg.value >= currentFee, "insufficient fee");
+            refundAmount = msg.value - currentFee;
         } else {
-            freeDeploymentsRemaining = freeDeploymentsRemaining - 1;
+            refundAmount = msg.value;
         }
+
+        totalDeployments++;
 
         ojoYieldRiskEngine = implementation.clone();
         OjoYieldRiskEngine(ojoYieldRiskEngine).initialize(basePriceFeed, yieldCap);
-        OjoYieldRiskEngineAddresses[msg.sender] = ojoYieldRiskEngine;
+        OjoYieldRiskEngineAddresses[msg.sender].push(ojoYieldRiskEngine);
 
         emit OjoYieldRiskEngineCreated(ojoYieldRiskEngine);
+
+        if (currentFee > 0) {
+            (bool success,) = feeRecipient.call{value: currentFee}("");
+            require(success, "fee transfer failed");
+        }
+
+        if (refundAmount > 0) {
+            (bool refundSuccess,) = msg.sender.call{value: refundAmount}("");
+            require(refundSuccess, "refund failed");
+        }
     }
 
     /**
@@ -82,11 +96,17 @@ contract OjoYieldRiskEngineFactory is Ownable {
         emit TermsAccepted(msg.sender);
     }
 
-    function setCreationFee(
-        uint256 _newFee
+    function setFeeStructure(uint256 newBaseFee, uint256 newFeeIncrement) external onlyOwner {
+        baseFee = newBaseFee;
+        feeIncrement = newFeeIncrement;
+        emit FeeUpdated(newBaseFee, newFeeIncrement);
+    }
+
+    function setMaxFee(
+        uint256 newMaxFee
     ) external onlyOwner {
-        creationFee = _newFee;
-        emit FeeUpdated(_newFee);
+        maxFee = newMaxFee;
+        emit MaxFeeUpdated(newMaxFee);
     }
 
     function setFeeRecipient(
