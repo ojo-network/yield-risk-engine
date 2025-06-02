@@ -87,7 +87,7 @@ contract OjoYieldRiskEngineFactory is Ownable {
     /**
      * @notice Allows users to accept the terms and conditions for creating risk engines
      * @dev Users must accept terms before they can create a risk engine
-     * @dev Terms document can be found at: https://example.com/terms.pdf
+     * @dev Terms document can be found at: https://github.com/ojo-network/yield-risk-engine/blob/main/DISCLAIMER.md
      * @custom:emits TermsAccepted when a user accepts the terms
      */
     function acceptTerms() external {
