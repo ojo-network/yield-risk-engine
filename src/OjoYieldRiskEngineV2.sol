@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {AggregatorV3Interface} from "./interfaces/AggregatorV2V3Interface.sol";
 import {AggregatorV2V3Interface} from "./interfaces/AggregatorV2V3Interface.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UD60x18, wrap, unwrap} from "@prb/src/UD60x18.sol";
 
 contract OjoYieldRiskEngineV2 is AggregatorV3Interface, Initializable {
     uint256 private constant ONE = 1e18;
@@ -33,6 +34,33 @@ contract OjoYieldRiskEngineV2 is AggregatorV3Interface, Initializable {
         riskEngineDescription = string(abi.encodePacked("Ojo Yield Risk Engine ", basePriceFeed.description()));
     }
 
+    function _calculateMaxAllowedPrice(
+        uint256 timestamp
+    ) internal view returns (int256) {
+        if (timestamp <= initialTimestamp) {
+            return initialPrice;
+        }
+
+        uint256 timeElapsed = timestamp - initialTimestamp;
+        uint256 t = (timeElapsed * ONE) / SECONDS_PER_YEAR; // Fixed-point year fraction
+
+        // Base = 1 + r
+        uint256 base = ONE + annualYieldCap;
+
+        // growthFactor = (1 + r)^t
+        UD60x18 baseUD = wrap(base);
+        UD60x18 tUD = wrap(t);
+        UD60x18 growthFactor = baseUD.pow(tUD);
+
+        // maxPrice = initialPrice * growthFactor / 1e18
+        return (initialPrice * int256(unwrap(growthFactor))) / int256(ONE);
+    }
+
+    function _capAnswer(int256 rawAnswer, uint256 timestamp) internal view returns (int256) {
+        int256 maxAllowedPrice = _calculateMaxAllowedPrice(timestamp);
+        return rawAnswer > maxAllowedPrice ? maxAllowedPrice : rawAnswer;
+    }
+
     function getCurrentMaxAllowedPrice() external view returns (int256 maxPrice, uint256 currentYieldPercent) {
         (,,, uint256 latestTimestamp,) = basePriceFeed.latestRoundData();
         maxPrice = _calculateMaxAllowedPrice(latestTimestamp);
@@ -45,28 +73,6 @@ contract OjoYieldRiskEngineV2 is AggregatorV3Interface, Initializable {
         currentYieldPercent = (annualYieldCap * timeElapsed) / SECONDS_PER_YEAR;
 
         return (maxPrice, currentYieldPercent);
-    }
-
-    function _calculateMaxAllowedPrice(
-        uint256 timestamp
-    ) internal view returns (int256) {
-        if (timestamp <= initialTimestamp) {
-            return initialPrice;
-        }
-
-        uint256 timeElapsed = timestamp - initialTimestamp;
-
-        // Calculate the maximum allowed yield based on time elapsed
-        // yield = (1 + annualYieldCap)^(timeElapsed/SECONDS_PER_YEAR) - 1
-        uint256 yearFraction = (timeElapsed * ONE) / SECONDS_PER_YEAR;
-        uint256 maxYieldFactor = ONE + ((annualYieldCap * yearFraction) / ONE);
-
-        return initialPrice + ((initialPrice * int256(maxYieldFactor - ONE)) / int256(ONE));
-    }
-
-    function _capAnswer(int256 rawAnswer, uint256 timestamp) internal view returns (int256) {
-        int256 maxAllowedPrice = _calculateMaxAllowedPrice(timestamp);
-        return rawAnswer > maxAllowedPrice ? maxAllowedPrice : rawAnswer;
     }
 
     function latestRoundData()

@@ -9,6 +9,10 @@ fs_permissions = [{ access = "read-write", path = "./"}]
 gas_reports = ["*"]
 build_info = true
 extra_output = ["storageLayout"]
+remappings = [
+    "@openzeppelin/=lib/openzeppelin-contracts/",
+    "@prb/=lib/prb-math/"
+]
 
 [rpc_endpoints]
 mainnet = "${ETH_RPC_URL}"

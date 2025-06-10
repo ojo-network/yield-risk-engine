@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../src/OjoYieldRiskEngineV2.sol";
 import "../src/OjoYieldRiskEngineFactoryV2.sol";
 import "./MockPriceFeed.sol";
+import {UD60x18, wrap, unwrap} from "@prb/src/UD60x18.sol";
 
 contract OjoYieldRiskEngineV2Test is Test {
     OjoYieldRiskEngineV2 public ojoYieldRiskEngine;
@@ -60,12 +61,15 @@ contract OjoYieldRiskEngineV2Test is Test {
         // Update price feed to get new timestamp
         basePriceFeed.updateAnswer(INITIAL_BASE_PRICE);
 
-        // Calculate expected max price after 6 months (should allow ~1.5% increase)
+        // Calculate expected max price after 6 months using compound interest
         uint256 timeElapsed = 182 days;
-        uint256 yearFraction = (timeElapsed * ONE) / SECONDS_PER_YEAR;
-        uint256 maxYieldFactor = ONE + ((ANNUAL_YIELD_CAP * yearFraction) / ONE);
-        int256 expectedMaxPrice =
-            INITIAL_BASE_PRICE + ((INITIAL_BASE_PRICE * int256(maxYieldFactor - ONE)) / int256(ONE));
+        uint256 t = (timeElapsed * ONE) / SECONDS_PER_YEAR;
+        uint256 base = ONE + ANNUAL_YIELD_CAP;
+
+        UD60x18 baseUD = wrap(base);
+        UD60x18 tUD = wrap(t);
+        UD60x18 growthFactor = baseUD.pow(tUD);
+        int256 expectedMaxPrice = (INITIAL_BASE_PRICE * int256(unwrap(growthFactor))) / int256(ONE);
 
         // Test price slightly below cap
         int256 priceBelow = expectedMaxPrice - 1e16;
@@ -86,8 +90,12 @@ contract OjoYieldRiskEngineV2Test is Test {
         // Update price feed to get new timestamp
         basePriceFeed.updateAnswer(INITIAL_BASE_PRICE);
 
-        // Calculate expected max price after 1 year (should allow 3% increase)
-        int256 expectedMaxPrice = INITIAL_BASE_PRICE + ((INITIAL_BASE_PRICE * int256(ANNUAL_YIELD_CAP)) / int256(ONE));
+        // Calculate expected max price after 1 year using compound interest
+        uint256 base = ONE + ANNUAL_YIELD_CAP;
+        UD60x18 baseUD = wrap(base);
+        UD60x18 tUD = wrap(ONE);
+        UD60x18 growthFactor = baseUD.pow(tUD);
+        int256 expectedMaxPrice = (INITIAL_BASE_PRICE * int256(unwrap(growthFactor))) / int256(ONE);
 
         // Test price at exactly the cap
         basePriceFeed.updateAnswer(expectedMaxPrice);
@@ -116,10 +124,13 @@ contract OjoYieldRiskEngineV2Test is Test {
         // Calculate expected values after 6 months
         uint256 timeElapsed = 182 days;
         uint256 expectedYield = (ANNUAL_YIELD_CAP * timeElapsed) / SECONDS_PER_YEAR;
-        uint256 yearFraction = (timeElapsed * ONE) / SECONDS_PER_YEAR;
-        uint256 maxYieldFactor = ONE + ((ANNUAL_YIELD_CAP * yearFraction) / ONE);
-        int256 expectedMaxPrice =
-            INITIAL_BASE_PRICE + ((INITIAL_BASE_PRICE * int256(maxYieldFactor - ONE)) / int256(ONE));
+
+        uint256 t = (timeElapsed * ONE) / SECONDS_PER_YEAR;
+        uint256 base = ONE + ANNUAL_YIELD_CAP;
+        UD60x18 baseUD = wrap(base);
+        UD60x18 tUD = wrap(t);
+        UD60x18 growthFactor = baseUD.pow(tUD);
+        int256 expectedMaxPrice = (INITIAL_BASE_PRICE * int256(unwrap(growthFactor))) / int256(ONE);
 
         assertEq(maxPrice, expectedMaxPrice);
         assertEq(currentYield, expectedYield);
@@ -131,7 +142,12 @@ contract OjoYieldRiskEngineV2Test is Test {
 
         (maxPrice, currentYield) = ojoYieldRiskEngine.getCurrentMaxAllowedPrice();
 
-        expectedMaxPrice = INITIAL_BASE_PRICE + ((INITIAL_BASE_PRICE * int256(ANNUAL_YIELD_CAP)) / int256(ONE));
+        base = ONE + ANNUAL_YIELD_CAP;
+        baseUD = wrap(base);
+        tUD = wrap(ONE);
+        growthFactor = baseUD.pow(tUD);
+        expectedMaxPrice = (INITIAL_BASE_PRICE * int256(unwrap(growthFactor))) / int256(ONE);
+
         assertEq(maxPrice, expectedMaxPrice);
         assertEq(currentYield, ANNUAL_YIELD_CAP);
     }
@@ -149,10 +165,12 @@ contract OjoYieldRiskEngineV2Test is Test {
 
         // Calculate expected max price
         uint256 timeElapsed = 182 days;
-        uint256 yearFraction = (timeElapsed * ONE) / SECONDS_PER_YEAR;
-        uint256 maxYieldFactor = ONE + ((ANNUAL_YIELD_CAP * yearFraction) / ONE);
-        int256 expectedMaxPrice =
-            INITIAL_BASE_PRICE + ((INITIAL_BASE_PRICE * int256(maxYieldFactor - ONE)) / int256(ONE));
+        uint256 t = (timeElapsed * ONE) / SECONDS_PER_YEAR;
+        uint256 base = ONE + ANNUAL_YIELD_CAP;
+        UD60x18 baseUD = wrap(base);
+        UD60x18 tUD = wrap(t);
+        UD60x18 growthFactor = baseUD.pow(tUD);
+        int256 expectedMaxPrice = (INITIAL_BASE_PRICE * int256(unwrap(growthFactor))) / int256(ONE);
 
         // Get round data and verify capping
         (uint80 returnedRoundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) =
