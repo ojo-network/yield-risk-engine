@@ -48,6 +48,9 @@ contract OjoYieldRiskEngineFactory is Ownable {
      * @custom:requires The caller must send at least the required creation fee if no free deployments remaining
      * @custom:emits OjoYieldRiskEngineCreated when a new engine is created
      * @dev Any excess ETH sent above the creation fee will be refunded to the caller
+     * @custom:security Operators should verify that the price feed is not experiencing any anomalies (e.g., price spikes)
+     * at the time of initialization, as the initial price will be used as the base for all future yield calculations.
+     * In extremely rare cases, price feed anomalies during initialization could lead to an incorrect yield cap baseline.
      */
     function createOjoYieldRiskEngine(
         address basePriceFeed,
