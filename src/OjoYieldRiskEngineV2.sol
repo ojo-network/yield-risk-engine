@@ -7,6 +7,10 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UD60x18, wrap, unwrap} from "@prb/src/UD60x18.sol";
 
 contract OjoYieldRiskEngineV2 is AggregatorV3Interface, Initializable {
+    constructor() {
+        _disableInitializers();
+    }
+
     uint256 private constant ONE = 1e18;
     uint256 private constant SECONDS_PER_YEAR = 365 days;
 
