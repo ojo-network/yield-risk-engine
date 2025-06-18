@@ -2,20 +2,33 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
+import "../src/ERC4626PriceFeedFactory.sol";
 import "../src/ERC4626PriceFeed.sol";
 
-contract DeployERC4626PriceFeed is Script {
+contract DeployERC4626PriceFeedFactory is Script {
     function run() external {
-        address vault = vm.envAddress("VAULT_ADDRESS");
-        string memory description = vm.envString("PRICE_FEED_DESCRIPTION");
-        uint256 version = vm.envUint("PRICE_FEED_VERSION");
-
         vm.startBroadcast();
 
-        ERC4626PriceFeed priceFeed = new ERC4626PriceFeed(vault, description, version);
+        ERC4626PriceFeedFactory factory = new ERC4626PriceFeedFactory();
 
         vm.stopBroadcast();
 
-        console2.log("ERC4626PriceFeed deployed at:", address(priceFeed));
+        console2.log("ERC4626PriceFeedFactory deployed at:", address(factory));
+    }
+}
+
+contract CreateERC4626PriceFeed is Script {
+    function run() external {
+        address factory = vm.envAddress("FACTORY_ADDRESS");
+        address vault = vm.envAddress("VAULT_ADDRESS");
+        string memory description = vm.envString("PRICE_FEED_DESCRIPTION");
+
+        vm.startBroadcast();
+
+        address priceFeed = ERC4626PriceFeedFactory(factory).createPriceFeed(vault, description);
+
+        vm.stopBroadcast();
+
+        console2.log("ERC4626PriceFeed created at:", priceFeed);
     }
 }
