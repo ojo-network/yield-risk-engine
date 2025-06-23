@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {AggregatorV2V3Interface} from "./interfaces/AggregatorV2V3Interface.sol";
+import {AggregatorV3Interface} from "./interfaces/AggregatorV2V3Interface.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract ERC4626PriceFeed is AggregatorV2V3Interface, Initializable {
+contract ERC4626PriceFeed is AggregatorV3Interface, Initializable {
     IERC4626 public vault;
     uint8 private decimalsValue;
     string private descriptionValue;
@@ -25,8 +25,16 @@ contract ERC4626PriceFeed is AggregatorV2V3Interface, Initializable {
         descriptionValue = _description;
     }
 
-    function latestAnswer() external view override returns (int256) {
-        return int256(vault.convertToAssets(1e18));
+    function getRoundData(
+        uint80 _roundId
+    )
+        external
+        view
+        override
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
+        require(_roundId <= CURRENT_ROUND_ID, "No data present");
+        return (_roundId, int256(vault.convertToAssets(1e18)), block.timestamp, block.timestamp, _roundId);
     }
 
     function latestRoundData()
