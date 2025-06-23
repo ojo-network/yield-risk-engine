@@ -29,40 +29,6 @@ contract ERC4626PriceFeed is AggregatorV2V3Interface, Initializable {
         return int256(vault.convertToAssets(1e18));
     }
 
-    function latestTimestamp() external view override returns (uint256) {
-        return block.timestamp;
-    }
-
-    function latestRound() external view override returns (uint256) {
-        return CURRENT_ROUND_ID;
-    }
-
-    function getAnswer(
-        uint256 _roundId
-    ) external view override returns (int256) {
-        require(_roundId <= CURRENT_ROUND_ID, "No data present");
-        return int256(vault.convertToAssets(1e18));
-    }
-
-    function getTimestamp(
-        uint256 _roundId
-    ) external view override returns (uint256) {
-        require(_roundId <= CURRENT_ROUND_ID, "No data present");
-        return block.timestamp;
-    }
-
-    function getRoundData(
-        uint80 _roundId
-    )
-        external
-        view
-        override
-        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
-    {
-        require(_roundId <= CURRENT_ROUND_ID, "No data present");
-        return (_roundId, int256(vault.convertToAssets(1e18)), block.timestamp, block.timestamp, _roundId);
-    }
-
     function latestRoundData()
         external
         view
