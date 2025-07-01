@@ -20,6 +20,9 @@ holesky = "${HOLESKY_RPC_URL}"
 sepolia = "${SEPOLIA_RPC_URL}"
 base = "${BASE_RPC_URL}"
 unichain = "${UNICHAIN_RPC_URL}"
+plume = "${PLUME_RPC_URL}"
+hyperevm = "${HYPEREVM_RPC_URL}"
+katana = "${KATANA_RPC_URL}"
 
 [fmt]
 bracket_spacing = false
@@ -40,5 +43,8 @@ holesky = { key = "${ETHERSCAN_API_KEY}" }
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
 base = { key = "${ETHERSCAN_API_KEY}" }
 unichain = { key = "${ETHERSCAN_API_KEY}" }
+plume = { key = "${ETHERSCAN_API_KEY}" }
+hyperevm = { key = "${ETHERSCAN_API_KEY}" }
+katana = { key = "${ETHERSCAN_API_KEY}" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
